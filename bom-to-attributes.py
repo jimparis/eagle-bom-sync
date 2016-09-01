@@ -66,9 +66,11 @@ def update_macrofab(tree):
         # Set POPULATE flag
         update_part_attribute(part, "POPULATE", populate)
 
-        # Set MPN to match BOM_PART
+        # Set MPN to match BOM_MACROFAB_PART or BOM_PART
         mpn = ""
-        att = part.find('attribute[@name="BOM_PART"]')
+        att = part.find('attribute[@name="BOM_MACROFAB_PART"]')
+        if att is None:
+            att = part.find('attribute[@name="BOM_PART"]')
         if att is not None:
             mpn = att.get("value")
         update_part_attribute(part, "MPN", mpn)
@@ -85,6 +87,7 @@ def bom_to_attributes(csvfile, brdfile):
         "Part",
         "Supplier",
         "Supplier part",
+        "Macrofab part",
         "Other notes",
     ]
     csv_other_fields = [
