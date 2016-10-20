@@ -153,7 +153,8 @@ def attributes_to_bom(brdfile):
             unused.append(desig)
 
     # Start CSV file
-    writer = csv.DictWriter(sys.stdout, csv_fields, restval='')
+    writer = csv.DictWriter(sys.stdout, csv_fields, restval='',
+                            lineterminator='\n')
     writer.writeheader()
 
     # Sort designators
