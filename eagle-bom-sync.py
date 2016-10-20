@@ -6,6 +6,8 @@
 from __future__ import print_function
 def printf(str, *args):
     print(str % args, end='')
+def fprintf(file, str, *args):
+    print(str % args, end='', file=file)
 
 import fileinput
 import csv
@@ -133,6 +135,7 @@ def attributes_to_bom(brdfile):
 
     # Grab each part and group by designator
     lineitem = collections.defaultdict(list)
+    unused = []
     for part in tree.findall('/drawing/board/elements/element'):
         desig = part.get("name")
         entries = {}
@@ -146,6 +149,8 @@ def attributes_to_bom(brdfile):
                 entries[field] = value
         if len(entries):
             lineitem[frozenset(entries.items())].append(desig)
+        else:
+            unused.append(desig)
 
     # Start CSV file
     writer = csv.DictWriter(sys.stdout, csv_fields, restval='')
@@ -164,6 +169,10 @@ def attributes_to_bom(brdfile):
             row["Qty"] = 0
         # And write to CSV
         writer.writerow(row)
+
+    if len(unused):
+        fprintf(sys.stderr, "Warning: no BOM data for designators:\n  %s\n",
+                " ".join(natsort.natsorted(unused)))
 
 if __name__ == "__main__":
     import argparse
