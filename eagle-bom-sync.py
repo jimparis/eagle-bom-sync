@@ -125,6 +125,19 @@ def bom_to_attributes(csvfile, brdfile):
     brdfile.seek(0)
     tree.write(brdfile)
 
+def csv_write_line(fields, keyval):
+    if keyval is None:
+        keyval = { x: x for x in fields }
+    row = []
+    for f in fields:
+        v = str(keyval[f])
+        if '"' in v:
+            raise Exception("Can't handle double quotes in CSV file: " + keyval)
+        if ',' in v or ' ' in v:
+            v = '"' + v + '"'
+        row.append(v)
+    printf("%s\n", ','.join(row))
+
 def attributes_to_bom(brdfile):
     """Extract BOM items from BRD file and write CSV to stdout"""
 
@@ -153,9 +166,7 @@ def attributes_to_bom(brdfile):
             unused.append(desig)
 
     # Start CSV file
-    writer = csv.DictWriter(sys.stdout, csv_fields, restval='',
-                            lineterminator='\n')
-    writer.writeheader()
+    csv_write_line(csv_fields, None)
 
     # Sort designators
     for li in lineitem:
@@ -169,7 +180,7 @@ def attributes_to_bom(brdfile):
         if "Notes" in row and row["Notes"] == "DNP":
             row["Qty"] = 0
         # And write to CSV
-        writer.writerow(row)
+        csv_write_line(csv_fields, row)
 
     if len(unused):
         fprintf(sys.stderr, "Warning: no BOM data for designators:\n  %s\n",
