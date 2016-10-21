@@ -138,13 +138,15 @@ def csv_write_line(fields, keyval):
         row.append(v)
     printf("%s\n", ','.join(row))
 
-def attributes_to_bom(brdfile):
+def attributes_to_bom(brdfile, include_value):
     """Extract BOM items from BRD file and write CSV to stdout"""
 
     # Open the BRD file
     tree = lxml.etree.parse(brdfile)
 
     csv_fields = required_bom_fields
+    if include_value:
+        csv_fields.insert(csv_fields.index("Description"), "Eagle value")
 
     # Grab each part and group by designator
     lineitem = collections.defaultdict(list)
@@ -161,6 +163,8 @@ def attributes_to_bom(brdfile):
                 value = attr.get("value")
                 entries[field] = value
         if len(entries):
+            if include_value:
+                entries["Eagle value"] = part.get("value")
             lineitem[frozenset(entries.items())].append(desig)
         else:
             unused.append(desig)
@@ -191,6 +195,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         prog=sys.argv[0],
         description="Synchronize BOM between a CSV and an Eagle BRD file")
+    parser.add_argument("-v", "--value", action="store_true",
+                        help="Include Eagle value column when extracting")
     group = parser.add_mutually_exclusive_group(required = True)
     group.add_argument("-i", "--inject", metavar=("CSV", "BRD"), nargs=2,
                        type=argparse.FileType("r+"),
@@ -202,5 +208,5 @@ if __name__ == "__main__":
     if args.inject:
         bom_to_attributes(args.inject[0], args.inject[1])
     else:
-        attributes_to_bom(args.extract[0])
+        attributes_to_bom(args.extract[0], args.value)
 
