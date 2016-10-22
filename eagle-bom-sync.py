@@ -59,9 +59,11 @@ def update_macrofab(tree):
     other attributes"""
 
     for part in tree.findall('/drawing/board/elements/element'):
-        # Is part populated?
+        # Is part populated?  Must have a non-empty "Part" column and
+        # not be marked DNP in "Notes".
         populate = "1"
-        if get_att_value(part, "NOTES") == "DNP":
+        if (get_att_value(part, "BOM_PART") == "" or
+            "DNP" in get_att_value(part, "BOM_NOTES")):
             populate = "0"
 
         # Set POPULATE flag
@@ -71,9 +73,9 @@ def update_macrofab(tree):
         # use BOM_SUPPLIER_PART
         mpn = ""
         if get_att_value(part, "SUPPLIER").lower() == "macrofab":
-            mpn = get_att_value(part, "SUPPLIER_PART")
+            mpn = get_att_value(part, "BOM_SUPPLIER_PART")
         if mpn == "":
-            mpn = get_att_value(part, "PART")
+            mpn = get_att_value(part, "BOM_PART")
         update_part_attribute(part, "MPN", mpn)
 
 # BOM fields that must be present.  Some are treated specially.
@@ -114,6 +116,8 @@ def bom_to_attributes(csvfile, brdfile):
     # inject into tree.
     for row in reader:
         designators = re.split(' *[;, ] *', row['Designators'])
+        if not any(row[k] != "" for k in row):
+            continue
         if row['Notes'] != 'DNP' and len(designators) != int(row['Qty']):
             raise DataError(row, "Designator count doesn't match quantity")
         for desig in designators:
