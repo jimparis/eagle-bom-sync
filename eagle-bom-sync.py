@@ -171,7 +171,8 @@ def attributes_to_bom(brdfile, include_value):
                 entries["Eagle value"] = part.get("value")
             lineitem[frozenset(entries.items())].append(desig)
         else:
-            unused.append(desig)
+            if "$" not in desig:
+                unused.append(desig)
 
     # Start CSV file
     csv_write_line(csv_fields, None)
