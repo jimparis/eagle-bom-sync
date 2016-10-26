@@ -13,6 +13,12 @@ import csv
 import sys
 import lxml.etree
 
+def get_att_value(part, name, default=""):
+    att = part.find('attribute[@name="%s"]' % name)
+    if att is None:
+        return default
+    return att.get("value")
+
 def set_values(brdin, schin, brdout, schout):
     brd = lxml.etree.parse(brdin)
     sch = lxml.etree.parse(schin)
@@ -20,12 +26,18 @@ def set_values(brdin, schin, brdout, schout):
     mpns = {}
     for brdpart in brd.findall('/drawing/board/elements/element'):
         name = brdpart.get("name")
-        att = brdpart.find('attribute[@name="BOM_PART"]')
-        if att is None:
+
+        mpn = get_att_value(brdpart, "BOM_PART", None)
+        if mpn is None:
             if "$" not in name:
                 printf("warning: no BOM_PART for board element %s\n", name)
             continue
-        mpn = att.get("value")
+
+        # Set value to to DO_NOT_POPULATE if "DNP" is in BOM_NOTES,
+        # or if manufacturer part number is empty
+        if mpn == "" or "DNP" in get_att_value(brdpart, "BOM_NOTES"):
+            mpn = "DO_NOT_POPULATE"
+
         brdpart.set("value", mpn)
         mpns[name] = mpn
 
