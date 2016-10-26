@@ -69,14 +69,19 @@ def update_macrofab(tree):
         # Set POPULATE flag
         update_part_attribute(part, "POPULATE", populate)
 
-        # Set MPN to match BOM_PART, or if the supplier is Macrofab,
-        # use BOM_SUPPLIER_PART
-        mpn = ""
-        if get_att_value(part, "SUPPLIER").lower() == "macrofab":
-            mpn = get_att_value(part, "BOM_SUPPLIER_PART")
-        if mpn == "":
-            mpn = get_att_value(part, "BOM_PART")
-        update_part_attribute(part, "MPN", mpn)
+        def set_mpn(field, supplier):
+            # Set MPN to match BOM_PART, or if the supplier is Macrofab,
+            # use BOM_SUPPLIER_PART
+            mpn = ""
+            if get_att_value(part, "SUPPLIER").lower() == supplier:
+                mpn = get_att_value(part, "BOM_SUPPLIER_PART")
+            if mpn == "":
+                mpn = get_att_value(part, "BOM_PART")
+            update_part_attribute(part, field, mpn)
+
+        # Set MPN for MacroFab, and PartNumber for CircuitHub
+        set_mpn("MPN", "macrofab")
+        set_mpn("PARTNUMBER", "circuithub")
 
 # BOM fields that must be present.  Some are treated specially.
 required_bom_fields = [
