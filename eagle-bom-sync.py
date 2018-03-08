@@ -44,6 +44,8 @@ def update_tree(tree, desig, fields, row):
         raise ValueError("Part %s not found in board" % desig)
     part = elem[0]
     for field in fields:
+        if len(field) == 0:
+            raise Exception("unexpected empty field??")
         # e.g. "Other notes" -> "BOM_OTHER_NOTES"
         att_name = "BOM_" + field.replace(' ','_').upper()
         update_part_attribute(part, att_name, row[field])
@@ -119,13 +121,22 @@ def bom_to_attributes(csvfile, brdfile):
 
     # For each row in the CSV, extract designators and
     # inject into tree.
+    all_designators = []
     for row in reader:
         designators = re.split(' *[;, ] *', row['Designators'])
         if not any(row[k] != "" for k in row):
             continue
-        if row['Notes'] != 'DNP' and len(designators) != int(row['Qty']):
-            raise DataError(row, "Designator count doesn't match quantity")
+        if row['Notes'] != 'DNP':
+            if row['Qty'] == "":
+                fprintf(sys.stderr, "Warning: missing quantity (%d) for: %s\n",
+                        len(designators), designators)
+            else:
+                if len(designators) != int(row['Qty']):
+                    raise DataError(row, "Part count doesn't match quantity")
         for desig in designators:
+            if desig in all_designators:
+                raise DataError(row, "Duplicate designator %s" % desig)
+            all_designators.append(desig)
             update_tree(tree, desig, inject_fields, row)
 
     # Macrofab-specific attributes
@@ -133,6 +144,7 @@ def bom_to_attributes(csvfile, brdfile):
 
     brdfile.seek(0)
     tree.write(brdfile)
+    brdfile.truncate()
 
 def csv_write_line(fields, keyval):
     if keyval is None:
@@ -160,20 +172,37 @@ def attributes_to_bom(brdfile, include_value):
     # Grab each part and group by designator
     lineitem = collections.defaultdict(list)
     unused = []
-    for part in tree.findall('/drawing/board/elements/element'):
+    parts = tree.findall('/drawing/board/elements/element')
+    parts = natsort.natsorted(parts, key=lambda x: x.get("name"))
+    for part in parts:
         desig = part.get("name")
         entries = {}
         for attr in part.findall('attribute'):
             name = attr.get("name")
-            if name.startswith("BOM_"):
+            if name.startswith("BOM_") and len(name) > 4:
                 field = name[4:].replace('_',' ').lower().capitalize()
                 if field not in csv_fields:
                     csv_fields.append(field)
                 value = attr.get("value")
                 entries[field] = value
+
+        # If we're including the Eagle values, we may be creating this
+        # for the first time, so warn about (but ignore) missing fields
+        missing_fields = []
+        if include_value:
+            entries["Eagle value"] = part.get("value")
+            for field in required_bom_fields:
+                # These don't get pushed into the Eagle file and aren't needed
+                if field == "Qty" or field == "Designators":
+                    continue
+                if field not in entries:
+                    missing_fields.append(field)
+                    entries[field] = ""
+        if len(missing_fields):
+            fprintf(sys.stderr, "Warning: missing fields for %s: %s\n",
+                    desig, ", ".join(missing_fields))
+
         if len(entries):
-            if include_value:
-                entries["Eagle value"] = part.get("value")
             lineitem[frozenset(entries.items())].append(desig)
         else:
             if "$" not in desig:
@@ -193,6 +222,7 @@ def attributes_to_bom(brdfile, include_value):
         row["Qty"] = len(lineitem[li])
         if "Notes" in row and row["Notes"] == "DNP":
             row["Qty"] = 0
+
         # And write to CSV
         csv_write_line(csv_fields, row)
 
