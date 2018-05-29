@@ -159,7 +159,7 @@ def csv_write_line(fields, keyval):
         row.append(v)
     printf("%s\n", ','.join(row))
 
-def attributes_to_bom(brdfile, include_value):
+def attributes_to_bom(brdfile, include_value, separate):
     """Extract BOM items from BRD file and write CSV to stdout"""
 
     # Open the BRD file
@@ -217,14 +217,18 @@ def attributes_to_bom(brdfile, include_value):
 
     # Now sort lineitems _by_ designators
     for li in natsort.natsorted(lineitem, key=lineitem.get):
-        row = dict(li)
-        row["Designators"] = " ".join(lineitem[li])
-        row["Qty"] = len(lineitem[li])
-        if "Notes" in row and row["Notes"] == "DNP":
-            row["Qty"] = 0
-
-        # And write to CSV
-        csv_write_line(csv_fields, row)
+        def write_line(data, designators):
+            row = dict(data)
+            row["Designators"] = " ".join(designators)
+            row["Qty"] = len(designators)
+            #if "Notes" in row and row["Notes"] == "DNP":
+            #    row["Qty"] = 0
+            csv_write_line(csv_fields, row)
+        if separate:
+            for x in lineitem[li]:
+                write_line(li, [x])
+        else:
+            write_line(li, lineitem[li])
 
     if len(unused):
         fprintf(sys.stderr, "Warning: no BOM data for designators:\n  %s\n",
@@ -237,6 +241,8 @@ if __name__ == "__main__":
         description="Synchronize BOM between a CSV and an Eagle BRD file")
     parser.add_argument("-v", "--value", action="store_true",
                         help="Include Eagle value column when extracting")
+    parser.add_argument("-s", "--separate", action="store_true",
+                        help="Separate line for each entry when extracting")
     group = parser.add_mutually_exclusive_group(required = True)
     group.add_argument("-i", "--inject", metavar=("CSV", "BRD"), nargs=2,
                        type=argparse.FileType("r+"),
@@ -248,5 +254,5 @@ if __name__ == "__main__":
     if args.inject:
         bom_to_attributes(args.inject[0], args.inject[1])
     else:
-        attributes_to_bom(args.extract[0], args.value)
+        attributes_to_bom(args.extract[0], args.value, args.separate)
 
