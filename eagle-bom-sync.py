@@ -167,7 +167,7 @@ def attributes_to_bom(brdfile, include_value):
 
     csv_fields = required_bom_fields
     if include_value:
-        csv_fields.insert(csv_fields.index("Description"), "Eagle value")
+        csv_fields.insert(csv_fields.index("Other notes") + 1, "Eagle value")
 
     # Grab each part and group by designator
     lineitem = collections.defaultdict(list)
