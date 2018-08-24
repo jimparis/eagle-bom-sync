@@ -72,13 +72,14 @@ def update_macrofab(trees):
                  trees[1].findall('/drawing/board/elements/element')):
         # Is part populated?  Must have a non-empty "Part" column and
         # not be marked DNP in "Notes".
-        populate = "1"
+        populate = True
         if (get_att_value(part, "BOM_PART") == "" or
             "DNP" in get_att_value(part, "BOM_NOTES")):
-            populate = "0"
+            populate = False
 
-        # Set POPULATE flag
-        update_part_attribute(part, "POPULATE", populate)
+        # Set POPULATE and DNP flag
+        update_part_attribute(part, "POPULATE", "1" if populate else "0")
+        update_part_attribute(part, "DNP", "0" if populate else "1")
 
         def set_mpn(field, supplier):
             # Set MPN to match BOM_PART, or if the supplier is Macrofab,
