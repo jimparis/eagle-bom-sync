@@ -82,8 +82,8 @@ def update_macrofab(trees):
         update_part_attribute(part, "DNP", "0" if populate else "1")
 
         def set_mpn(field, supplier):
-            # Set MPN to match BOM_PART, or if the supplier is Macrofab,
-            # use BOM_SUPPLIER_PART
+            # Set MPN to match BOM_PART, unless this is the attribute for
+            # the supplier we're using, in which case use BOM_SUPPLIER_PART.
             mpn = ""
             if get_att_value(part, "SUPPLIER").lower() == supplier:
                 mpn = get_att_value(part, "BOM_SUPPLIER_PART")
@@ -94,6 +94,10 @@ def update_macrofab(trees):
         # Set MPN for MacroFab, and PartNumber for CircuitHub
         set_mpn("MPN", "macrofab")
         set_mpn("PARTNUMBER", "circuithub")
+
+        # Set manufacturer
+        update_part_attribute(part, "MANUFACTURER",
+                              get_att_value(part, "BOM_MANUFACTURER"))
 
 # BOM fields that must be present.  Some are treated specially.
 required_bom_fields = [
