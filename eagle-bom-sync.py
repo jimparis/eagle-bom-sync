@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 # Synchronize between a bill-of-materials in CSV format, and
-# attributes that represent that same BOM data in an Eagle BRD file.
+# attributes that represent that same BOM data in an Eagle SCH file.
 
 from __future__ import print_function
 def printf(str, *args):
@@ -30,25 +30,33 @@ def update_part_attribute(part, name, value):
         att = lxml.etree.SubElement(part, "attribute")
     att.set("name", name)
     att.set("value", value)
-    att.set("x", part.get("x"))
-    att.set("y", part.get("y"))
-    att.set("size", "1")
-    att.set("layer", "27")
-    att.set("rot", "R180")
-    att.set("display", "off")
+    if part.get("x") is not None:
+        # Board attributes need position/display data
+        att.set("x", part.get("x"))
+        att.set("y", part.get("y"))
+        att.set("size", "1")
+        att.set("layer", "27")
+        att.set("rot", "R180")
+        att.set("display", "off")
 
-def update_tree(tree, desig, fields, row):
+def update_tree(trees, desig, fields, row):
     """Update XML tree for item 'desig' with fields from 'row'"""
-    elem = tree.findall('/drawing/board/elements/element[@name="%s"]' % desig)
-    if len(elem) != 1:
+    elems = [
+        trees[0].findall('/drawing/schematic/parts/part[@name="%s"]' % desig),
+        trees[1].findall('/drawing/board/elements/element[@name="%s"]' % desig),
+    ]
+    if len(elems[0]) != 1:
+        raise ValueError("Part %s not found in schematic" % desig)
+    if len(elems[1]) != 1:
         raise ValueError("Part %s not found in board" % desig)
-    part = elem[0]
-    for field in fields:
-        if len(field) == 0:
-            raise Exception("unexpected empty field??")
-        # e.g. "Other notes" -> "BOM_OTHER_NOTES"
-        att_name = "BOM_" + field.replace(' ','_').upper()
-        update_part_attribute(part, att_name, row[field])
+    for elem in elems:
+        part = elem[0]
+        for field in fields:
+            if len(field) == 0:
+                raise Exception("unexpected empty field??")
+            # e.g. "Other notes" -> "BOM_OTHER_NOTES"
+            att_name = "BOM_" + field.replace(' ','_').upper()
+            update_part_attribute(part, att_name, row[field])
 
 def get_att_value(part, name, default=""):
     att = part.find('attribute[@name="%s"]' % name)
@@ -56,11 +64,12 @@ def get_att_value(part, name, default=""):
         return default
     return att.get("value")
 
-def update_macrofab(tree):
+def update_macrofab(trees):
     """Update XML tree with macrofab-specific attributes, based on the
     other attributes"""
 
-    for part in tree.findall('/drawing/board/elements/element'):
+    for part in (trees[0].findall('/drawing/schematic/parts/part') +
+                 trees[1].findall('/drawing/board/elements/element')):
         # Is part populated?  Must have a non-empty "Part" column and
         # not be marked DNP in "Notes".
         populate = "1"
@@ -99,8 +108,8 @@ required_bom_fields = [
     "Other notes",
 ]
 
-def bom_to_attributes(csvfile, brdfile):
-    """Extract BOM items from CSV file and insert into BRD file"""
+def bom_to_attributes(csvfile, schfile, brdfile):
+    """Extract BOM items from CSV file and insert into SCH+BRD file"""
     reader = csv.DictReader(csvfile, restval='')
 
     # Verify that the CSV contains all expected fields
@@ -116,8 +125,8 @@ def bom_to_attributes(csvfile, brdfile):
             continue
         inject_fields.append(field)
 
-    # Open the BRD file
-    tree = lxml.etree.parse(brdfile)
+    # Open the SCH and BRD files
+    trees = [ lxml.etree.parse(x) for x in (schfile, brdfile) ]
 
     # For each row in the CSV, extract designators and
     # inject into tree.
@@ -137,14 +146,16 @@ def bom_to_attributes(csvfile, brdfile):
             if desig in all_designators:
                 raise DataError(row, "Duplicate designator %s" % desig)
             all_designators.append(desig)
-            update_tree(tree, desig, inject_fields, row)
+            update_tree(trees, desig, inject_fields, row)
 
-    # Macrofab-specific attributes
-    update_macrofab(tree)
+    # Macrofab and Circuithub-specific attributes
+    update_macrofab(trees)
 
-    brdfile.seek(0)
-    tree.write(brdfile)
-    brdfile.truncate()
+    # Write the SCH and BRD files
+    for (tree, outfile) in zip(trees, (schfile, brdfile)):
+        outfile.seek(0)
+        tree.write(outfile)
+        outfile.truncate()
 
 def csv_write_line(fields, keyval):
     if keyval is None:
@@ -159,21 +170,25 @@ def csv_write_line(fields, keyval):
         row.append(v)
     printf("%s\n", ','.join(row))
 
-def attributes_to_bom(brdfile, include_value, separate):
-    """Extract BOM items from BRD file and write CSV to stdout"""
+def attributes_to_bom(schfile, brdfile, include_value, separate):
+    """Extract BOM items from SCH file and write CSV to stdout"""
 
-    # Open the BRD file
-    tree = lxml.etree.parse(brdfile)
+    # Open the SCH and BRD files, although we really only need
+    # one of them.
+    trees = [ lxml.etree.parse(x) for x in (schfile, brdfile) ]
 
     csv_fields = required_bom_fields
     if include_value:
         csv_fields.insert(csv_fields.index("Other notes") + 1, "Eagle value")
 
-    # Grab each part and group by designator
+    # Grab each part and group by designator.  We use parts from the
+    # board, so that we don't get schematic-only symbols (like GND).
+    parts = trees[1].findall('/drawing/board/elements/element')
+    parts = natsort.natsorted(parts, key=lambda x: x.get("name"))
+
     lineitem = collections.defaultdict(list)
     unused = []
-    parts = tree.findall('/drawing/board/elements/element')
-    parts = natsort.natsorted(parts, key=lambda x: x.get("name"))
+
     for part in parts:
         desig = part.get("name")
         entries = {}
@@ -238,21 +253,22 @@ if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(
         prog=sys.argv[0],
-        description="Synchronize BOM between a CSV and an Eagle BRD file")
+        description="Synchronize BOM between a CSV and Eagle files")
     parser.add_argument("-v", "--value", action="store_true",
                         help="Include Eagle value column when extracting")
     parser.add_argument("-s", "--separate", action="store_true",
                         help="Separate line for each entry when extracting")
     group = parser.add_mutually_exclusive_group(required = True)
-    group.add_argument("-i", "--inject", metavar=("CSV", "BRD"), nargs=2,
+    group.add_argument("-i", "--inject", metavar=("CSV", "SCH", "BRD"), nargs=3,
                        type=argparse.FileType("r+"),
-                       help="Inject from CSV into BRD")
-    group.add_argument("-e", "--extract", metavar="BRD", nargs=1,
+                       help="Inject from CSV into SCH+BRD")
+    group.add_argument("-e", "--extract", metavar=("SCH", "BRD"), nargs=2,
                        type=argparse.FileType("r"),
-                       help="Extract from BRD (to stdout)")
+                       help="Extract from SCH+BRD (to stdout)")
     args = parser.parse_args()
     if args.inject:
-        bom_to_attributes(args.inject[0], args.inject[1])
+        bom_to_attributes(args.inject[0], args.inject[1], args.inject[2])
     else:
-        attributes_to_bom(args.extract[0], args.value, args.separate)
+        attributes_to_bom(args.extract[0], args.extract[1],
+                          args.value, args.separate)
 
