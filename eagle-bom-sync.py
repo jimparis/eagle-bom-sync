@@ -39,6 +39,11 @@ def update_part_attribute(part, name, value):
         att.set("rot", "R180")
         att.set("display", "off")
 
+def remove_attribute(part, name):
+    att = part.find('attribute[@name="%s"]' % name)
+    if att is not None:
+        att.getparent().remove(att)
+
 def update_tree(trees, desig, fields, row):
     """Update XML tree for item 'desig' with fields from 'row'"""
     elems = [
@@ -64,12 +69,24 @@ def get_att_value(part, name, default=""):
         return default
     return att.get("value")
 
-def update_macrofab(trees):
-    """Update XML tree with macrofab-specific attributes, based on the
-    other attributes"""
+def update_manufacturer_data(trees, all_designators):
+    """Update XML tree with manufacturer-specific attributes, based on the
+    other attributes
+    """
 
     for part in (trees[0].findall('/drawing/schematic/parts/part') +
                  trees[1].findall('/drawing/board/elements/element')):
+
+        if part.get("name") not in all_designators:
+            # This part isn't in the BOM, so remove attributes if there are any.
+            for to_remove in ( "POPULATE",
+                               "DNP",
+                               "MPN",
+                               "PARTNUMBER",
+                               "MANUFACTURER" ):
+                remove_attribute(part, to_remove)
+            continue
+
         # Is part populated?  Must have a non-empty "Part" column and
         # not be marked DNP in "Notes".
         populate = True
@@ -85,7 +102,7 @@ def update_macrofab(trees):
             # Set MPN to match BOM_PART, unless this is the attribute for
             # the supplier we're using, in which case use BOM_SUPPLIER_PART.
             mpn = ""
-            if get_att_value(part, "SUPPLIER").lower() == supplier:
+            if get_att_value(part, "BOM_SUPPLIER").lower() == supplier:
                 mpn = get_att_value(part, "BOM_SUPPLIER_PART")
             if mpn == "":
                 mpn = get_att_value(part, "BOM_PART")
@@ -154,7 +171,7 @@ def bom_to_attributes(csvfile, schfile, brdfile):
             update_tree(trees, desig, inject_fields, row)
 
     # Macrofab and Circuithub-specific attributes
-    update_macrofab(trees)
+    update_manufacturer_data(trees, all_designators)
 
     # Write the SCH and BRD files
     for (tree, outfile) in zip(trees, (schfile, brdfile)):
