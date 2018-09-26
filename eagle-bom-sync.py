@@ -99,13 +99,18 @@ def update_manufacturer_data(trees, all_designators):
         update_part_attribute(part, "DNP", "0" if populate else "1")
 
         def set_mpn(field, supplier):
-            # Set MPN to match BOM_PART, unless this is the attribute for
-            # the supplier we're using, in which case use BOM_SUPPLIER_PART.
+            # Set MPN to match BOM_PART, unless the part's supplier
+            # matches the supplier passed to this function, in which
+            # case we use BOM_SUPPLIER_PART.
+            # If the part is DNP, MPN is set to "DO_NOT_POPULATE"
+            # regardless.
             mpn = ""
             if get_att_value(part, "BOM_SUPPLIER").lower() == supplier:
                 mpn = get_att_value(part, "BOM_SUPPLIER_PART")
             if mpn == "":
                 mpn = get_att_value(part, "BOM_PART")
+            if not populate:
+                mpn = "DO_NOT_POPULATE"
             update_part_attribute(part, field, mpn)
 
         # Set MPN for MacroFab, and PartNumber for CircuitHub
