@@ -18,6 +18,8 @@ import re
 import lxml.etree
 import collections
 
+set_qty_to_zero_for_DNP = True
+
 class DataError(Exception):
     def __init__(self, data, message=""):
         super(DataError, self).__init__(
@@ -263,8 +265,9 @@ def attributes_to_bom(schfile, brdfile, include_value, separate):
             row = dict(data)
             row["Designators"] = " ".join(designators)
             row["Qty"] = len(designators)
-            #if "Notes" in row and row["Notes"] == "DNP":
-            #    row["Qty"] = 0
+            if set_qty_to_zero_for_DNP:
+                if "Notes" in row and row["Notes"] == "DNP":
+                    row["Qty"] = 0
             csv_write_line(csv_fields, row)
         if separate:
             for x in lineitem[li]:
