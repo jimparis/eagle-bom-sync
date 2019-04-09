@@ -1,5 +1,4 @@
-#T=~/git/micro1v8/micro1v8
-T=~/git/bolt/vergesense/sensor-hardware/poe/sensor
+T=~/git/micro1v8/hardware/micro1v8
 
 all:
 	./eagle-bom-sync.py -i $T-bom.csv $T.sch $T.brd
