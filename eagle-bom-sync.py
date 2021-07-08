@@ -246,6 +246,10 @@ def attributes_to_bom(schfile, brdfile, include_value, separate):
             fprintf(sys.stderr, "Warning: missing fields for %s: %s\n",
                     desig, ", ".join(missing_fields))
 
+        # Hack to split each designator on its own line
+        if 0:
+            entries["force_split"] = desig
+
         if len(entries):
             lineitem[frozenset(entries.items())].append(desig)
         else:
