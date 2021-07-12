@@ -8,7 +8,7 @@ import xlsxwriter # type: ignore
 from .csv import *
 from typing import Any
 
-class AutoReader(BOMReader):
+class SheetReader(BOMReader):
     """Use ssconvert from Gnumeric to convert the input file to csv, then
     read it with CSVReader
 
@@ -32,7 +32,7 @@ class AutoReader(BOMReader):
         with CSVReader(temp_csv) as reader:
             yield from reader()
 
-class AutoWriter(BOMWriter):
+class SheetWriter(BOMWriter):
     """Write a temporary XLSX file to get formatting correct, then use
     ssconvert from Gnumeric to convert to the output file
 

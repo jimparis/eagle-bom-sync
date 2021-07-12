@@ -1,4 +1,4 @@
 from .bom import BOM
 from .csv import CSVReader, CSVWriter
-from .auto import AutoReader, AutoWriter
+from .sheet import SheetReader, SheetWriter
 from .eagle import EagleReader, EagleWriter
