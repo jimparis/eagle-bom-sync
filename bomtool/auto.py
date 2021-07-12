@@ -1,13 +1,12 @@
 import os
 import csv
 import tempfile
+import functools
 import subprocess
-import xlsxpandasformatter # type: ignore
-import pandas # type: ignore
-import pandas.io.formats.excel # type: ignore
+import xlsxwriter # type: ignore
 
-from typing import Any
 from .csv import *
+from typing import Any
 
 class AutoReader(BOMReader):
     """Use ssconvert from Gnumeric to convert the input file to csv, then
@@ -49,7 +48,6 @@ class AutoWriter(BOMWriter):
         return self
 
     def __exit__(self, *args):
-        subprocess.run(f"cp -rv {self.tempdir.name} /tmp", shell=True)
         self.tempdir.cleanup()
 
     def __call__(self, parts: dict[str, Part],
@@ -64,120 +62,94 @@ class AutoWriter(BOMWriter):
         data = []
         with open(temp_csv, "r") as f:
             reader = csv.DictReader(f, restval='')
-            fieldnames = list(reader.fieldnames or [])
-            for row in reader:
-                data.append(list(row.values()))
+            header = list(reader.fieldnames or [])
+            data.append(header)
+            for csv_row in reader:
+                data.append(list(csv_row.values()))
 
-        # Hack to prevent pandas from formatting header
-        # https://stackoverflow.com/questions/36694313
-        pandas.io.formats.excel.ExcelFormatter.header_style = None
+        # Create XLSX
 
-        # Build XLSX using Pandas.  This is used (instead of
-        # xlsxwriter) because we can use the XlsxPandasFormatter
-        # module to help with output formatting.
         sheet_name = 'BOM'
         if variants:
             sheet_name += f' ({",".join(variants)})'
 
-        df = pandas.DataFrame(data, columns=fieldnames)
         temp_xlsx = os.path.join(self.tempdir.name, "out.xlsx")
-        writer = pandas.ExcelWriter(temp_xlsx, engine='xlsxwriter')
-        df.to_excel(writer, index=False, sheet_name=sheet_name)
-        book = writer.book
-        real_sheet = writer.sheets[sheet_name]
+        workbook = xlsxwriter.Workbook(temp_xlsx)
+        worksheet = workbook.add_worksheet(sheet_name)
 
-        # Wrap objects with xlsxpandasformatter to manage formatting
-        sheet = xlsxpandasformatter.FormattedWorksheet(
-            real_sheet, book, df, hasIndex=False)
+        # Build default format for every cell
+        base_format = {
+            "font": "Arial",
+            "font_size": 10,
+            "border": 1,
+            "border_color": '#cccccc',
+        }
+        formats: list[list[dict[str, Any]]] = []
+        for datarow in data:
+            formats.append([ base_format ] * len(datarow))
 
-        # Format it!
-        sheet.freeze_header()
+        # Add formats to a cell, row, or column
+        def format_cell(row: int, col: int, fmt: dict[str, Any]) -> None:
+            formats[row][col] = dict(formats[row][col], **fmt)
 
-        default_font = 'DejaVu Sans'
-        designator_width = 28
+        def format_row(row: int, fmt: dict[str, Any]) -> None:
+            for col in range(len(formats[row])):
+                format_cell(row, col, fmt)
 
-        # Header
-        sheet.format_header(headerFormat=[{
-            'bold': True, 'bg_color': '#ccddff', 'bottom': 1,
-            'font': default_font, 'font_size': 10 }])
+        def format_col(col: int, fmt: dict[str, Any]) -> None:
+            for row in range(len(formats)):
+                format_cell(row, col, fmt)
 
-        # Rows
-        for (n, thisrow) in enumerate(data):
-            fmt = { 'font': default_font, 'font_size': 10 }
-            if thisrow[fieldnames.index('Notes')] == 'DNP':
-                fmt['bg_color'] = '#ffddaa'
-                fmt['italic'] = True
+        # Get column number with given name
+        @functools.cache
+        def field(name: str) -> int:
+            return header.index(name)
 
-            # Try to conservatively auto-size row height based on
-            # designators wrapping
-            height = ((len(thisrow[fieldnames.index('Designators')])
-                       // (designator_width - 2)) + 1) * 15
-            sheet.format_row(n, rowHeight=height, rowFormat=fmt)
+        # Format header
+        format_row(0, { 'bg_color': '#ccddff', 'bold': True, 'bottom': 1 })
 
-        # Columns
-        def col(name: str) -> int:
-            return fieldnames.index(name)
+        # DNP rows are styled differently
+        for row in range(len(data)):
+            if data[row][field('Notes')] == 'DNP':
+                format_row(row, { 'bg_color': '#cccccc', 'italic': True })
+                format_cell(row, field('Designators'),
+                            { 'font_strikeout': True })
+
+        # Column sizes
+        desig_width = 28
 
         def set_width(name: str, width: float) -> None:
-            sheet.worksheet.set_column(col(name), col(name), width)
-
+            worksheet.set_column(field(name), field(name), width)
         set_width('Notes', 7)
         set_width('Qty', 3)
         set_width('Package', 11)
         set_width('Description', 32)
         set_width('Manufacturer', 20)
         set_width('Part', 28)
-        set_width('Designators', designator_width)
+        set_width('Designators', desig_width)
         set_width('Supplier', 13)
         set_width('Supplier part', 35)
         set_width('Variant rule', 20)
         set_width('Other notes', 48)
 
-        sheet.format_col(col('Designators'), colFormat={ 'text_wrap': True })
+        # Designator column wraps.  Set height to account for wraps.
+        format_col(field('Designators'), { 'text_wrap': True })
+        for row in range(len(data)):
+            wraps = len(data[row][field('Designators')]) // (desig_width - 2)
+            worksheet.set_row(row, 18 * (wraps + 1))
+            format_row(row, { 'valign': 'top' } )
 
+        # Write cell contents and formats
+        memoized_formats = {}
+        for row in range(len(data)):
+            for col in range(len(data[row])):
+                fmt = formats[row][col]
+                key = frozenset(fmt)
+                if key not in memoized_formats:
+                    memoized_formats[key] = workbook.add_format(fmt)
+                worksheet.write(row, col, data[row][col], memoized_formats[key])
 
-        # Hack to prevent sheet.apply_format_table from crashing on index
-        sheet.nIndexLevels = 0
-
-        # Apply formats
-        sheet.apply_format_table()
-
-        # Save
-        writer.save()
-
-
-        # book = xlsxwriter.Workbook(temp_xlsx, { 'tmpdir': self.tempdir.name })
-        # sheet = book.add_worksheet()
-
-        # # Set default font/size
-        # for fmt in book.formats:
-        #     fmt.set_font('Sans')
-        #     fmt.set_font_size(10)
-
-        # format_props: dict[str, dict[str, Any]] = {
-        #     'header':  { 'bg_color': '#ccddff', 'bold': True, 'bottom': 1 },
-        #     'reg_row': { },
-        #     'dnp_row': { 'bg_color': '#ffddaa', 'italic': True },
-        #     'designators': { 'text_wrap': True },
-        # }
-        # formats = {}
-        # for (k, v) in format_props.items():
-        #     formats[k] = book.add_format(v)
-
-        #     sheet.write_row(0, 0, header, formats['header'])
-        #     for (n, data) in enumerate(reader):
-        #         if data['Notes'] == 'DNP':
-        #             fmt = formats['dnp_row']
-        #         else:
-        #             fmt = formats['reg_row']
-        #         sheet.write_row(n + 1, 0, data.values(), fmt)
-
-        #     sheet.write_column(0, header.index('Designators'),
-        #                        [], formats['designators'])
-
-        #     print(header.index('Designators'))
-
-        # book.close()
+        workbook.close()
 
         # Now convert to whatever we asked for
         subprocess.run(["ssconvert", temp_xlsx, self.path], check=True)
