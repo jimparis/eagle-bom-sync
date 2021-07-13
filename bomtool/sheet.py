@@ -18,19 +18,12 @@ class SheetReader(BOMReader):
     def __init__(self, path: str) -> None:
         self.path = path
 
-    def __enter__(self):
-        self.tempdir = tempfile.TemporaryDirectory()
-        return self
-
-    def __exit__(self, *args):
-        self.tempdir.cleanup()
-
     def __call__(self) -> typing.Generator[Part, None, None]:
-        temp_csv = os.path.join(self.tempdir.name, "converted.csv")
-        print(f"Converting from {self.path}")
-        subprocess.run(["ssconvert", self.path, temp_csv], check=True)
-        with CSVReader(temp_csv) as reader:
-            yield from reader()
+        with tempfile.TemporaryDirectory() as tempdir:
+            temp_csv = os.path.join(tempdir, "converted.csv")
+            print(f"Converting from {self.path}")
+            subprocess.run(["ssconvert", self.path, temp_csv], check=True)
+            yield from CSVReader(temp_csv)()
 
 class SheetWriter(BOMWriter):
     """Write a temporary XLSX file to get formatting correct, then use
@@ -43,20 +36,19 @@ class SheetWriter(BOMWriter):
         self.path = path
         self.merge = merge
 
-    def __enter__(self):
-        self.tempdir = tempfile.TemporaryDirectory()
-        return self
-
-    def __exit__(self, *args):
-        self.tempdir.cleanup()
-
     def __call__(self, parts: dict[str, Part],
                  variants: Optional[list[str]]) -> None:
 
+        with tempfile.TemporaryDirectory() as tempdir:
+            self.call_with_tempdir(tempdir, parts, variants)
+
+    def call_with_tempdir(self, tempdir: str,
+                          parts: dict[str, Part],
+                          variants: Optional[list[str]]) -> None:
+
         # First write to CSV
-        temp_csv = os.path.join(self.tempdir.name, "out.csv")
-        with CSVWriter(path=temp_csv, merge=self.merge) as writer:
-            writer(parts, variants)
+        temp_csv = os.path.join(tempdir, "out.csv")
+        CSVWriter(path=temp_csv, merge=self.merge)(parts, variants)
 
         # Now re-read the CSV
         data = []
@@ -73,7 +65,7 @@ class SheetWriter(BOMWriter):
         if variants:
             sheet_name += f' ({",".join(variants)})'
 
-        temp_xlsx = os.path.join(self.tempdir.name, "out.xlsx")
+        temp_xlsx = os.path.join(tempdir, "out.xlsx")
         workbook = xlsxwriter.Workbook(temp_xlsx)
         worksheet = workbook.add_worksheet(sheet_name)
 

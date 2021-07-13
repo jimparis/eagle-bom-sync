@@ -17,13 +17,6 @@ class CSVReader(BOMReader):
     def __init__(self, path: str) -> None:
         self.path = path
 
-    def __enter__(self):
-        self.csv = open(self.path, "r")
-        return self
-
-    def __exit__(self, *args):
-        self.csv.close()
-
     def __call__(self) -> typing.Generator[Part, None, None]:
         with open(self.path, "r") as f:
             reader = csv.DictReader(f, restval='')
@@ -80,18 +73,12 @@ class CSVReader(BOMReader):
 
 class CSVWriter(BOMWriter):
     path: str
+    printed_header: bool
+    csv: typing.IO
 
     def __init__(self, path: str, merge: bool=True) -> None:
         self.path = path
         self.merge = merge
-
-    def __enter__(self):
-        self.csv = open(self.path, "w")
-        self.printed_header = False
-        return self
-
-    def __exit__(self, *args):
-        self.csv.close()
 
     def write_csv_line(self, keyval: collections.OrderedDict[str, str]):
         row = []
@@ -137,29 +124,31 @@ class CSVWriter(BOMWriter):
                 out_parts[part.desig] = part
 
         # Print all rows
-        for desig in natsort.natsorted(out_parts):
-            for (rules, info) in out_parts[desig].variants:
-                if info.dnp:
-                    notes = "DNP"
-                    qty = 0
-                else:
-                    notes = ""
-                    qty = len(desig.split())
+        self.printed_header = False
+        with open(self.path, "w") as self.csv:
+            for desig in natsort.natsorted(out_parts):
+                for (rules, info) in out_parts[desig].variants:
+                    if info.dnp:
+                        notes = "DNP"
+                        qty = 0
+                    else:
+                        notes = ""
+                        qty = len(desig.split())
 
-                row = collections.OrderedDict()
-                row['Notes'] = notes
-                row['Qty'] = str(qty)
-                row['Package'] = info.package
-                row['Description'] = info.description
-                row['Manufacturer'] = info.manufacturer
-                row['Part'] = info.part
-                row['Designators'] = desig
-                row['Supplier'] = info.supplier
-                row['Supplier part'] = info.supplier_part
-                if not hide_variant_rules or True:
-                    row['Variant rule'] = rules
-                row['Other notes'] = info.notes
-                self.write_csv_line(row)
+                    row = collections.OrderedDict()
+                    row['Notes'] = notes
+                    row['Qty'] = str(qty)
+                    row['Package'] = info.package
+                    row['Description'] = info.description
+                    row['Manufacturer'] = info.manufacturer
+                    row['Part'] = info.part
+                    row['Designators'] = desig
+                    row['Supplier'] = info.supplier
+                    row['Supplier part'] = info.supplier_part
+                    if not hide_variant_rules or True:
+                        row['Variant rule'] = rules
+                    row['Other notes'] = info.notes
+                    self.write_csv_line(row)
 
         if variants is None:
             print(f"Wrote {self.path} as master BOM for all variants")
