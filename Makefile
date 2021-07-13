@@ -5,6 +5,9 @@ def:
 	./bomtool.py -i ~/git/coris/pcb/lora-ets/lora-bom.ods -o lora-bom.csv
 	./bomtool.py -i ~/git/coris/pcb/lora-ets/lora-bom.ods -o lora-bom-base.csv -v base
 	./bomtool.py -i ~/git/coris/pcb/lora-ets/lora-bom.ods -o lora-bom-cryo.csv -v cryo
+	./bomtool.py -i ~/git/coris/pcb/lora-ets/lora-bom.ods -o lora-bom.ods
+	./bomtool.py -i ~/git/coris/pcb/lora-ets/lora-bom.ods -o lora-bom-base.ods -v base
+	./bomtool.py -i ~/git/coris/pcb/lora-ets/lora-bom.ods -o lora-bom-cryo.ods -v cryo
 #	./test.py
 
 #	ssconvert ~/git/coris/pcb/lora-ets/lora-bom.ods lora-bom.csv
