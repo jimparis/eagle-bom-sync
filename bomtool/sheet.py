@@ -108,26 +108,33 @@ class SheetWriter(CSVWriter):
         # Column sizes
         desig_width = 28
 
-        def set_width(name: str, width: float) -> None:
+        def set_width(name: str, width: float, wrap: bool = False) -> None:
             worksheet.set_column(field(name), field(name), width)
+            if wrap:
+                format_col(field(name), { 'text_wrap': True })
         set_width('Notes', 7)
         set_width('Qty', 3)
         set_width('Package', 11)
         set_width('Description', 32)
         set_width('Manufacturer', 20)
         set_width('Part', 28)
-        set_width('Designators', desig_width)
+        set_width('Designators', desig_width, True)
         set_width('Supplier', 13)
         set_width('Supplier part', 35)
         set_width('Variant rule', 20)
-        set_width('Other notes', 48)
+        set_width('Other notes', 48, True)
+        set_width('Alternatives', 48, True)
+        set_width('Status', 48, True)
 
-        # Designator column wraps.  Set height to account for wraps.
-        format_col(field('Designators'), { 'text_wrap': True })
-        for row in range(len(data)):
-            wraps = len(data[row][field('Designators')]) // (desig_width - 2)
-            worksheet.set_row(row, 18 * (wraps + 1))
-            format_row(row, { 'valign': 'top' } )
+        if 0:
+            # Set row height to account for wraps in Designators.
+            # Most spreadsheets do this automatically on open, but
+            # Gnumeric does not.  But, setting explicit height disables
+            # any automatic sizing, which I'd prefer to keep for now.
+            for row in range(len(data)):
+                n = len(data[row][field('Designators')]) // (desig_width - 2)
+                worksheet.set_row(row, 18 * (n + 1))
+                format_row(row, { 'valign': 'top' } )
 
         # Write cell contents and formats
         memoized_formats = {}
@@ -138,6 +145,9 @@ class SheetWriter(CSVWriter):
                 if key not in memoized_formats:
                     memoized_formats[key] = workbook.add_format(fmt)
                 worksheet.write(row, col, data[row][col], memoized_formats[key])
+
+        # Freeze header
+        worksheet.freeze_panes(1, 0)
 
         workbook.close()
 
