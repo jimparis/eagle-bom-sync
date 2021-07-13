@@ -8,37 +8,35 @@ import xlsxwriter # type: ignore
 from .csv import *
 from typing import Any
 
-class SheetReader(BOMReader):
+class SheetReader(CSVReader):
     """Use ssconvert from Gnumeric to convert the input file to csv, then
     read it with CSVReader
 
     """
-    path: str
-
-    def __init__(self, path: str) -> None:
-        self.path = path
-
     def __call__(self) -> typing.Generator[Part, None, None]:
+        # If CSV, input it directly
+        if self.path.endswith('.csv'):
+            yield from super().__call__()
+            return
+
         with tempfile.TemporaryDirectory() as tempdir:
             temp_csv = os.path.join(tempdir, "converted.csv")
             print(f"Converting from {self.path}")
             subprocess.run(["ssconvert", self.path, temp_csv], check=True)
             yield from CSVReader(temp_csv)()
 
-class SheetWriter(BOMWriter):
+class SheetWriter(CSVWriter):
     """Write a temporary XLSX file to get formatting correct, then use
     ssconvert from Gnumeric to convert to the output file
 
     """
-    path: str
-
-    def __init__(self, path: str, merge: bool=True) -> None:
-        self.path = path
-        self.merge = merge
-
     def __call__(self, parts: dict[str, Part],
                  variants: Optional[list[str]]) -> None:
+        # If CSV, output it directly
+        if self.path.endswith('.csv'):
+            return super().__call__(parts, variants)
 
+        # Otherwise, do the full write/read/write/convert
         with tempfile.TemporaryDirectory() as tempdir:
             self.call_with_tempdir(tempdir, parts, variants)
 
