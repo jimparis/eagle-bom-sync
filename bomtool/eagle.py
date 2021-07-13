@@ -21,5 +21,6 @@ class EagleWriter:
         self.sch = sch
         self.brd = brd
 
-    def __call__(self) -> typing.Generator[Part, None, None]:
+    def __call__(self, parts: dict[str, Part],
+                 variants: Optional[list[str]]) -> None:
         raise NotImplementedError("todo")
