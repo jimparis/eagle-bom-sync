@@ -75,10 +75,15 @@ class CSVWriter(BOMWriter):
     path: str
     printed_header: bool
     csv: typing.IO
+    merge: bool
+    eagle_value: bool
 
-    def __init__(self, path: str, merge: bool=True) -> None:
+    def __init__(self, path: str,
+                 merge: bool=True,
+                 eagle_value: bool=False) -> None:
         self.path = path
         self.merge = merge
+        self.eagle_value = eagle_value
 
     def write_csv_line(self, keyval: collections.OrderedDict[str, str]):
         row = []
