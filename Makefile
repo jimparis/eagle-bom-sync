@@ -1,9 +1,15 @@
 T=lora
 
 def:
-	ssconvert ~/git/coris/pcb/lora-ets/lora-bom.ods lora-bom.csv
 	mypy -p bomtool
-	./test.py
+	./bomtool.py -i ~/git/coris/pcb/lora-ets/lora-bom.ods -o lora-bom.csv
+	./bomtool.py -i ~/git/coris/pcb/lora-ets/lora-bom.ods -o lora-bom-base.csv -v base
+	./bomtool.py -i ~/git/coris/pcb/lora-ets/lora-bom.ods -o lora-bom-cryo.csv -v cryo
+#	./test.py
+
+#	ssconvert ~/git/coris/pcb/lora-ets/lora-bom.ods lora-bom.csv
+#	mypy -p bomtool
+#	./test.py
 
 all:
 	./eagle-bom-sync.py -i $T-bom.csv $T.sch $T.brd

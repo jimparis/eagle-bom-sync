@@ -41,33 +41,28 @@ def run(args):
 
     # Read input
     if args['in']:
-        reader_class = bomtool.SheetReader
-        if args['in'].endswith('.csv'):
-            reader_class = bomtool.CSVReader
-        with reader_class(args['in']) as reader:
-            bom.read(reader)
+        reader = bomtool.SheetReader(args['in'])
     else:
         (sch, brd) = args['in_eagle']
-        with bomtool.EagleReader(sch, brd) as reader:
-            bom.read(reader)
+        reader = bomtool.EagleReader(sch, brd)
+    bom.read(reader)
+
+    if args['variant']:
+        variants = args['variant'].split(',')
+        print(f"Extracting BOM for variant: {' '.join(variants)}")
+    else:
+        variants = None
+        print(f"Extracting master BOM for all variants")
 
     # Write output
     if args['out']:
-        writer_class = bomtool.
-        pass
-
-    raise
-    if args.inject:
-        bom_to_attributes(args.inject[0], args.inject[1], args.inject[2])
+        writer = bomtool.SheetWriter(args['out'],
+                                     merge=not args['separate'],
+                                     eagle_value=args['eagle_value'])
     else:
-        if not args.variant:
-            variants = None
-            log(f"Extracting master BOM for all variants")
-        else:
-            variants = args.variant.split(',')
-            log(f"Extracting BOM specific to variants: {variants}")
-        attributes_to_bom(args.extract[0], args.extract[1],
-                          args.value, args.separate, variants)
+        (sch, brd) = args['out_eagle']
+        writer = bomtool.EagleWriter(sch, brd)
+    bom.write(writer, variants)
 
 if __name__ == "__main__":
     import sys
