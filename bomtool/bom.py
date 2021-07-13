@@ -29,6 +29,8 @@ class Info:
     supplier: str
     supplier_part: str
     notes: str           # "Other notes" field in CSV
+    alternatives: str
+    status: str
     dnp: bool = False    # goes into "Notes" field in CSV
 
 Variants = list[tuple[VariantRules, Info]]

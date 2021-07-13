@@ -45,7 +45,10 @@ class CSVReader(BOMReader):
                             part=field('Part'),
                             supplier=field('Supplier'),
                             supplier_part=field('Supplier part'),
-                            notes=field('Other notes'))
+                            notes=field('Other notes'),
+                            alternatives=field('Alternatives'),
+                            status=field('Status'),
+                    )
 
                 # Notes field should just contain DNP or be empty
                 notes = field('Notes')
@@ -153,6 +156,8 @@ class CSVWriter(BOMWriter):
                     if not hide_variant_rules or True:
                         row['Variant rule'] = rules
                     row['Other notes'] = info.notes
+                    row['Alternatives'] = info.alternatives
+                    row['Status'] = info.status
                     self.write_csv_line(row)
 
         if variants is None:
