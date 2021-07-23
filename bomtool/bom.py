@@ -89,7 +89,10 @@ class BOM:
             for (desig, part) in self.parts.items():
                 for (rules, info) in copy.deepcopy(part.variants):
                     flags = parse_variant_rules(rules, variants)
-                    info.dnp = flags["dnp"]
+                    # Variant rule can only _set_ DNP; it may already be
+                    # true because of the Notes field in the file.
+                    if flags["dnp"]:
+                        info.dnp = True
                     if not flags["exclude"]:
                         out_bom.append(Part(desig, [(rules, info)]))
 
