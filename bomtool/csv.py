@@ -115,13 +115,23 @@ class CSVWriter(BOMWriter):
             # Merge designators where all other fields match
             memo = collections.defaultdict(list)
             for part in parts.values():
-                if hide_variant_rules:
-                    # Exclude variant rules from the key that we use to merge,
-                    # since we won't include that column in the output
-                    v = [ ('', i) for (r, i) in part.variants ]
-                else:
-                    v = part.variants
-                key = tuple(sorted(v))
+
+                # Version of the part that we use as the hash key
+                # for merging
+                part_key: list[tuple[str, Info]] = []
+
+                for (rule, info) in part.variants:
+                    # In the version of the part that we use for the key,
+                    # blank out things that should not be considered when
+                    # merging, because they're not included in the output
+                    # anyway.
+                    if hide_variant_rules:
+                        rule = ''
+                    if not self.eagle_value:
+                        info.eagle_value = ''
+                    part_key.append((rule, info))
+
+                key = tuple(sorted(part_key))
                 memo[key].append(part.desig)
             for key in memo:
                 desig = ' '.join(natsort.natsorted(memo[key]))
@@ -153,11 +163,15 @@ class CSVWriter(BOMWriter):
                     row['Designators'] = desig
                     row['Supplier'] = info.supplier
                     row['Supplier part'] = info.supplier_part
-                    if not hide_variant_rules or True:
+                    if hide_variant_rules:
+                        row['Variant rule'] = ''
+                    else:
                         row['Variant rule'] = rules
                     row['Other notes'] = info.notes
                     row['Alternatives'] = info.alternatives
                     row['Status'] = info.status
+                    if self.eagle_value:
+                        row['Eagle value'] = info.eagle_value
                     self.write_csv_line(row)
 
         if variants is None:
