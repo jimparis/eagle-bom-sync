@@ -49,6 +49,9 @@ all:
 	@echo "-- extract from Eagle files"
 	./bomtool.py -I lora-all.sch lora-all.brd -o lora-bom-extract.csv
 
+	./bomtool.py -I lora-all.sch lora-all.brd -o lora-bom-extract-value.csv --eagle-value
+	! diff -q lora-bom-extract.csv lora-bom-extract-value.csv
+
 	./bomtool.py -I lora-all.sch lora-all.brd -o lora-bom-extract-base.csv -v base
 	./bomtool.py -I lora-base.sch lora-base.brd -o lora-bom-extract-base2.csv
 
