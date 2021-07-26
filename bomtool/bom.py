@@ -28,10 +28,11 @@ class Info:
     part: str
     supplier: str
     supplier_part: str
-    notes: str           # "Other notes" field in CSV
+    notes: str              # "Other notes" field in CSV
     alternatives: str
     status: str
-    dnp: bool = False    # goes into "Notes" field in CSV
+    dnp: bool = False       # goes into "Notes" field in CSV
+    eagle_value: str = ""   # Only filled when reading Eagle files
 
 Variants = list[tuple[VariantRules, Info]]
 

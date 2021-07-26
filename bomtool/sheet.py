@@ -46,7 +46,10 @@ class SheetWriter(CSVWriter):
 
         # First write to CSV
         temp_csv = os.path.join(tempdir, "out.csv")
-        CSVWriter(path=temp_csv, merge=self.merge)(parts, variants)
+        writer = CSVWriter(path=temp_csv,
+                           merge=self.merge,
+                           eagle_value=self.eagle_value)
+        writer(parts, variants)
 
         # Now re-read the CSV
         data = []

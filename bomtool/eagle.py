@@ -26,6 +26,7 @@ class EagleReader:
         # don't get schematic-only symbols (like GND).
         for part in brd.findall('/drawing/board/elements/element'):
             desig = part.get('name')
+            eagle_value = part.get('value', '')
 
             # Grab all key/value attributes
             data = {}
@@ -56,6 +57,7 @@ class EagleReader:
                             notes=get('NOTES'),
                             alternatives=get('ALTERNATIVES'),
                             status=get('STATUS'),
+                            eagle_value=eagle_value,
                             )
                 if get('DNP', False) == "1":
                     info.dnp = True
