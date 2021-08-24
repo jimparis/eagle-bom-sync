@@ -28,6 +28,9 @@ class EagleReader:
             desig = part.get('name')
             eagle_value = part.get('value', '')
 
+            if '$' in desig:
+                continue
+
             # Grab all key/value attributes
             data = {}
             for attr in part.findall('attribute'):
