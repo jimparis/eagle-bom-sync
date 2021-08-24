@@ -22,6 +22,8 @@ class EagleReader:
         with open(self.brd) as f:
             brd = lxml.etree.parse(f)
 
+        missing_bom = []
+
         # Grab each part.  We use parts from the board, so that we
         # don't get schematic-only symbols (like GND).
         for part in brd.findall('/drawing/board/elements/element'):
@@ -44,6 +46,9 @@ class EagleReader:
                 m = re.match(r'^BOM_VAR_([0-9]+)_', key)
                 if m:
                     variants[int(m.group(1))] = True
+
+            if not len(variants):
+                missing_bom.append(desig)
 
             # For each variant, yield the data
             for v in sorted(variants):
@@ -68,6 +73,12 @@ class EagleReader:
                 rules = get('VARIANT_RULES')
 
                 yield Part(desig=desig, variants=[ (rules, info) ])
+
+        if missing_bom:
+            log(f"----");
+            log(f"---- Missing BOM data for: {' '.join(missing_bom)}");
+            log(f"----");
+
 
 class EagleWriter:
     sch: str
