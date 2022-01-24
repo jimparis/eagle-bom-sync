@@ -49,6 +49,7 @@ class EagleReader:
 
             if not len(variants):
                 missing_bom.append(desig)
+                variants[0] = True
 
             # For each variant, yield the data
             for v in sorted(variants):
