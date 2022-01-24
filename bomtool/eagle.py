@@ -175,8 +175,9 @@ class EagleWriter:
                 set_attribute(elem, "BOM_VARIANTS", " ".join(variants))
                 set_attribute(elem, "DNP", "1" if info.dnp else "0")
                 set_attribute(elem, "MANUFACTURER", info.manufacturer)
-                set_attribute(elem, "MPN", info.part)
-                set_attribute(elem, "PARTNUMBER", info.part)
+                maybe_part = "NOT_POPULATED" if info.dnp else info.part
+                set_attribute(elem, "MPN", maybe_part)
+                set_attribute(elem, "PARTNUMBER", maybe_part)
                 set_attribute(elem, "POPULATE", "0" if info.dnp else "1")
 
         # Write the SCH and BRD files
