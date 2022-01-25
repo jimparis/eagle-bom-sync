@@ -129,6 +129,7 @@ class CSVWriter(BOMWriter):
                         rule = ''
                     if not self.eagle_value:
                         info.eagle_value = ''
+                        info.eagle_package = ''
                     part_key.append((rule, info))
 
                 key = tuple(sorted(part_key))
@@ -172,6 +173,7 @@ class CSVWriter(BOMWriter):
                     row['Status'] = info.status
                     if self.eagle_value:
                         row['Eagle value'] = info.eagle_value
+                        row['Eagle package'] = info.eagle_package
                     self.write_csv_line(row)
 
         if variants is None:

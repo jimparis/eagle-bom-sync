@@ -16,7 +16,7 @@ def log(fmt, *args):
 Desig = str
 VariantRules = str
 
-@dataclasses.dataclass(unsafe_hash=True)
+@dataclasses.dataclass(unsafe_hash=True, order=True)
 class Info:
     """BOM info for a single part designator in a single variant.
 
@@ -33,6 +33,7 @@ class Info:
     status: str
     dnp: bool = False       # goes into "Notes" field in CSV
     eagle_value: str = ""   # Only filled when reading Eagle files
+    eagle_package: str = "" # Only filled when reading Eagle files
 
 Variants = list[tuple[VariantRules, Info]]
 

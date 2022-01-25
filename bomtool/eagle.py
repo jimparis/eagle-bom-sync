@@ -29,6 +29,7 @@ class EagleReader:
         for part in brd.findall('/drawing/board/elements/element'):
             desig = part.get('name')
             eagle_value = part.get('value', '')
+            eagle_package = part.get('package', '')
 
             if '$' in desig:
                 continue
@@ -67,6 +68,7 @@ class EagleReader:
                             alternatives=get('ALTERNATIVES'),
                             status=get('STATUS'),
                             eagle_value=eagle_value,
+                            eagle_package=eagle_package,
                             )
                 if get('DNP', False) == "1":
                     info.dnp = True
