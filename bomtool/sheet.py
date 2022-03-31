@@ -58,6 +58,7 @@ class SheetWriter(CSVWriter):
             header = list(reader.fieldnames or [])
             data.append(header)
             for csv_row in reader:
+                csv_row['Qty'] = int(csv_row['Qty'])
                 data.append(list(csv_row.values()))
 
         # Create XLSX
